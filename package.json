@@ -1,0 +1,83 @@
+{
+  "name": "my-vpn",
+  "version": "1.0.0",
+  "description": "Мой личный VPN",
+  "homepage": "https://github.com/misha/my-vpn",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:linux": "electron-builder --linux",
+    "build:win": "electron-builder --win"
+  },
+  "keywords": [],
+  "author": {
+    "name": "misha",
+    "email": "misha@example.com"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "socks-proxy-agent": "^8.0.2"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.misha.myvpn",
+    "productName": "MyVPN",
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "vpn.js",
+      "xray",
+      "src/**/*",
+      "geoip.dat",
+      "geosite.dat",
+      "my-vpn-gui/**/*",
+      "node_modules/**/*"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Network",
+      "extraResources": [
+        {
+          "from": "xray",
+          "to": "xray"
+        },
+        {
+          "from": "geoip.dat",
+          "to": "geoip.dat"
+        },
+        {
+          "from": "geosite.dat",
+          "to": "geosite.dat"
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "extraResources": [
+        {
+          "from": "xray.exe",
+          "to": "xray.exe"
+        },
+        {
+          "from": "geoip.dat",
+          "to": "geoip.dat"
+        },
+        {
+          "from": "geosite.dat",
+          "to": "geosite.dat"
+        }
+      ]
+    }
+  }
+}

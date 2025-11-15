@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Мой VPN</title>
+  <style>
+    body {font-family: Arial, sans-serif; text-align: center; padding: 40px; background: #0d1117; color: #c9d1d9; margin: 0;}
+    h1 {font-size: 28px; margin-bottom: 20px;}
+    select {padding: 14px; margin: 10px; font-size: 18px; width: 360px; border-radius: 8px; border: 1px solid #30363d;}
+    button {padding: 14px 30px; margin: 10px; font-size: 18px; border: none; border-radius: 8px; cursor: pointer;}
+    .connect {background: #238636; color: white;}
+    .connect:hover {background: #2ea043;}
+    .disconnect {background: #da3633; color: white;}
+    .disconnect:hover {background: #f85149;}
+    #status {margin-top: 25px; font-size: 22px; font-weight: bold; color: #39d353;}
+    .flag {font-size: 24px; margin-right: 8px;}
+  </style>
+</head>
+<body>
+  <h1>Мой VPN</h1>
+  <select id="server"></select><br>
+  <button class="connect" onclick="connect()">Подключить</button>
+  <button class="disconnect" onclick="disconnect()">Отключить</button>
+  <div id="status">Выбери сервер и нажми Подключить</div>
+</body>
+<script src="main.js"></script>
+</html>

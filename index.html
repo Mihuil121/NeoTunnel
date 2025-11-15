@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Шкатулка Запретов</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0616;
+      --bg-alt: #130b27;
+      --card: #1b1238;
+      --card-soft: rgba(33, 19, 70, 0.8);
+      --accent: #7b5cff;
+      --accent-strong: #9f72ff;
+      --accent-soft: rgba(123, 92, 255, 0.18);
+      --text: #f5f2ff;
+      --text-muted: #a89bd0;
+      --success: #3dd2a1;
+      --danger: #ff6b81;
+      --warning: #ffb347;
+      --border: rgba(255, 255, 255, 0.05);
+      --shadow: 0 20px 60px rgba(16, 8, 37, 0.65);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 10% 20%, rgba(155, 114, 255, 0.35), transparent 55%),
+                  radial-gradient(circle at 80% 0%, rgba(63, 33, 90, 0.6), transparent 60%),
+                  linear-gradient(180deg, #07030f 0%, #0b0616 55%, #05020a 100%);
+      display: flex; align-items: center; justify-content: center; padding: 32px;
+    }
+
+    .app { width: 1050px; max-width: 100%; display: flex; flex-direction: column; gap: 20px; position: relative; }
+
+    .top-bar { display: flex; align-items: center; justify-content: space-between; }
+    .status-chip { display:inline-flex; align-items:center; justify-content:center; padding:10px 18px; border-radius:999px; font-size:14px; font-weight:600; letter-spacing:0.02em; background: rgba(255,255,255,0.04); color: var(--text-muted); transition: background .3s,color .3s; }
+    .status-chip[data-state="connected"]{ background: rgba(61,210,161,.18); color: var(--success);} 
+    .status-chip[data-state="connecting"]{ background: rgba(255,179,71,.18); color: var(--warning);} 
+    .status-chip[data-state="disconnected"]{ background: rgba(255,107,129,.18); color: var(--danger);} 
+
+    .clock { display:flex; align-items:center; gap:10px; color:var(--text-muted); font-family:'JetBrains Mono', monospace; }
+    .top-bar button.icon { width:44px; height:44px; border-radius:14px; border:none; background:var(--card); color:var(--text); font-size:20px; cursor:pointer; transition:transform .2s, box-shadow .2s; display:flex; align-items:center; justify-content:center; }
+    .top-bar button.icon:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(123,92,255,.35); }
+
+    .tabs { display:flex; gap:10px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:16px; padding:6px; width:fit-content; }
+    .tab-btn { padding:10px 16px; border:none; border-radius:12px; background:transparent; color:var(--text-muted); cursor:pointer; font-weight:600; }
+    .tab-btn.active { background:linear-gradient(135deg, var(--accent), var(--accent-strong)); color:#fff; box-shadow:0 6px 16px rgba(123,92,255,.35); }
+
+    .view { display:none; }
+    .view.active { display:block; }
+
+    .card { background: var(--card); border-radius: 26px; padding: 24px; backdrop-filter: blur(25px); border: 1px solid var(--border); box-shadow: var(--shadow); position: relative; overflow: hidden; }
+    .card::before { content:''; position:absolute; inset:0; background: linear-gradient(135deg, rgba(123,92,255,0.12), transparent 55%); pointer-events:none; }
+    .card h2 { font-size: 20px; font-weight:600; margin-bottom: 18px; display:flex; align-items:center; gap:10px; }
+
+    .stats-grid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:16px; }
+    .stat-card { background: var(--card-soft); border:1px solid rgba(255,255,255,0.04); border-radius:22px; padding:18px; display:flex; flex-direction:column; gap:6px; }
+    .stat-label { font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--text-muted); }
+    .stat-value { font-size:22px; font-weight:600; }
+
+    .power-card { display:flex; flex-direction:column; align-items:center; gap:26px; padding: 32px 24px 40px; }
+    .power-orb { width:260px; height:260px; border-radius:50%; background: radial-gradient(circle at 30% 30%, rgba(123,92,255,.45), transparent 70%), radial-gradient(circle at 70% 70%, rgba(61,210,161,.25), transparent 75%), var(--card); display:flex; align-items:center; justify-content:center; position:relative; box-shadow:0 30px 60px rgba(123,92,255,.35); border:1px solid rgba(255,255,255,.08); }
+    .power-orb::after { content:''; position:absolute; inset:18px; border-radius:50%; border:1px dashed rgba(255,255,255,.08); animation: rotate 18s linear infinite; }
+    @keyframes rotate { to { transform: rotate(360deg); } }
+    .power-button { width:130px; height:130px; border-radius:50%; border:none; background:linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%); color:#fff; font-size:36px; font-weight:600; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 20px 35px rgba(123,92,255,.55); transition:transform .25s, box-shadow .25s; }
+    .power-button.connected { background: linear-gradient(135deg, #3dd2a1 0%, #47f5b8 100%); box-shadow: 0 25px 40px rgba(61,210,161,.4); }
+    .power-button:hover { transform: translateY(-4px); }
+
+    .current-summary { display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; }
+    .current-summary .location { font-size:18px; font-weight:600; }
+    .current-summary .meta { font-size:14px; color:var(--text-muted); }
+
+    .gauge { width:100%; height:12px; background:rgba(255,255,255,.06); border-radius:999px; overflow:hidden; margin-top:18px; }
+    .gauge-fill { height:100%; border-radius:999px; background:linear-gradient(135deg, var(--accent), var(--accent-strong)); width:0%; transition: width .4s ease; }
+    .gauge-value { font-family:'JetBrains Mono', monospace; color:var(--text-muted); font-size:14px; margin-top:8px; }
+
+    .pinned-details { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:18px; border-radius:18px; background: rgba(255,255,255,.03); }
+    .pinned-info { display:flex; align-items:center; gap:16px; }
+    .flag { font-size:24px; filter: drop-shadow(0 4px 8px rgba(0,0,0,.35)); }
+    .pinned-info .name { font-weight:600; font-size:16px; }
+    .pinned-info .meta { font-size:13px; color:var(--text-muted); margin-top:2px; }
+    .pill-button { padding:10px 20px; border-radius:16px; border:none; cursor:pointer; font-weight:600; font-size:14px; background:linear-gradient(135deg, var(--accent), var(--accent-strong)); color:#fff; transition: transform .2s, box-shadow .2s; }
+    .pill-button:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(123,92,255,.35); }
+
+    .server-card .subheader { margin-bottom:0; }
+    .server-list { display:flex; flex-direction:column; max-height:520px; overflow-y:auto; padding-right:8px; padding-top:4px; }
+    .server-list::-webkit-scrollbar { width:6px; }
+    .server-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 999px; }
+    .server-list::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.2); }
+    .server-item { background: rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.04); border-radius:16px; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; gap:16px; cursor:pointer; transition: all .2s; margin-bottom:8px; }
+    .server-item:hover { border-color: rgba(123,92,255,.4); background: rgba(123,92,255,.08); transform: translateY(-1px); }
+    .server-item.selected { border-color: var(--accent); background: rgba(123,92,255,.12); }
+    .server-item.connected { border-color: rgba(61,210,161,.65); background: rgba(61,210,161,.12); }
+    .server-info { display:flex; align-items:center; gap:12px; flex:1; min-width:0; }
+    .server-text { display:flex; flex-direction:column; gap:4px; flex:1; min-width:0; overflow:hidden; }
+    .server-text .name { font-size:15px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .server-text .meta { font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .server-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+    .circle-btn { width:36px; height:36px; border-radius:50%; border:none; background: rgba(255,255,255,.06); color:var(--text); font-size:14px; cursor:pointer; transition: all .2s; display:flex; align-items:center; justify-content:center; }
+    .circle-btn:hover { background: rgba(123,92,255,.25); transform: scale(1.05); }
+    .server-actions .pill-button { padding:8px 16px; font-size:13px; white-space:nowrap; }
+    .server-actions .pill-button.disconnect { background: rgba(255, 107, 129, .2); color: var(--danger); border:1px solid rgba(255,107,129,0.3); }
+    .server-actions .pill-button.delete { background: rgba(255, 107, 129, .15); color: var(--danger); font-size:11px; padding:6px 10px; border:1px solid rgba(255,107,129,0.2); }
+
+    .notification { position: fixed; top: 26px; right: 26px; min-width: 260px; padding: 16px 20px; border-radius: 18px; background: rgba(27, 18, 56, .95); border: 1px solid rgba(255,255,255,.08); color: var(--text); font-weight: 500; letter-spacing: .01em; box-shadow: 0 18px 35px rgba(9,4,25,.45); transform: translateY(-30px); opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; }
+    .notification.show { opacity: 1; transform: translateY(0); }
+    .notification.success { border-color: rgba(61,210,161,.6); }
+    .notification.error { border-color: rgba(255,107,129,.6); }
+
+    .modal-overlay { backdrop-filter: blur(8px); }
+
+    @media (max-width: 1080px) { body { padding: 24px; } }
+    @media (max-width: 640px) { .stats-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } .power-orb { width:220px; height:220px; } .power-button { width:110px; height:110px; font-size:32px; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="top-bar">
+      <div class="status-chip" id="status-chip" data-state="disconnected">Отключено</div>
+      <div class="clock"><span>Время</span><span id="clock">--:--:--</span></div>
+      <button class="icon" id="whoer-btn" title="Проверить IP">🌐</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" id="tab-power">Питание</button>
+      <button class="tab-btn" id="tab-servers">Серверы</button>
+      <button class="tab-btn" id="tab-speed">Скорость</button>
+    </div>
+
+    <!-- View: Power -->
+    <section class="view active" id="view-power">
+      <div class="card power-card">
+        <div class="power-orb"><button class="power-button" id="power-button">⏻</button></div>
+        <div class="current-summary">
+          <div class="location" id="current-server-name">Выберите сервер</div>
+          <div class="meta" id="current-server-meta">Статус соединения обновится после подключения</div>
+        </div>
+        <div class="pinned-details" id="pinned-details"><div class="empty">Закрепите сервер, чтобы быстро подключаться к нему</div></div>
+      </div>
+    </section>
+
+    <!-- View: Servers -->
+    <section class="view" id="view-servers">
+      <div class="card server-card">
+        <div class="subheader" style="margin-bottom:16px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <h2 style="margin:0; font-size:18px;">Список серверов</h2>
+            <span id="server-count" style="color:var(--text-muted); font-size:14px;">0 доступно</span>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="pill-button" id="add-config-btn" style="padding:10px 18px; font-size:13px; flex:1; min-width:120px;">+ Добавить</button>
+            <button class="pill-button" id="update-subscriptions-btn" style="padding:10px 18px; font-size:13px; flex:1; min-width:140px; background:linear-gradient(135deg, var(--accent), var(--accent-strong));">🔄 Подписки</button>
+            <button class="pill-button" id="test-all-btn" style="padding:10px 18px; font-size:13px; flex:1; min-width:120px; background:rgba(255,179,71,0.2); color:var(--warning); border:1px solid rgba(255,179,71,0.3);">⚡ Тест</button>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <button class="pill-button" id="remove-duplicates-btn" style="padding:8px 16px; font-size:12px; flex:1; background:rgba(255,107,129,0.15); color:var(--danger); border:1px solid rgba(255,107,129,0.2);">🗑 Дубликаты</button>
+            <button class="pill-button" id="clear-all-btn" style="padding:8px 16px; font-size:12px; flex:1; background:rgba(255,107,129,0.15); color:var(--danger); border:1px solid rgba(255,107,129,0.2);">🗑 Очистить</button>
+          </div>
+        </div>
+        <div class="server-list" id="server-list"></div>
+      </div>
+    </section>
+
+    <!-- View: Speed -->
+    <section class="view" id="view-speed">
+      <div class="card">
+        <h2>Скорость VPN</h2>
+        <div class="stats-grid">
+          <div class="stat-card"><span class="stat-label">Download</span><span class="stat-value" id="stat-download">0.0 Mb/s</span></div>
+          <div class="stat-card"><span class="stat-label">Upload</span><span class="stat-value" id="stat-upload">0.0 Mb/s</span></div>
+          <div class="stat-card"><span class="stat-label">Пинг</span><span class="stat-value" id="stat-ping">— ms</span></div>
+        </div>
+        <div class="gauge"><div class="gauge-fill" id="speed-gauge"></div></div>
+        <div class="gauge-value" id="speed-value">0.00 Mb/s</div>
+      </div>
+    </section>
+  </div>
+
+    <div class="notification" id="notification"></div>
+
+    <!-- Modal для добавления конфига -->
+    <div class="modal-overlay" id="config-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+      <div class="card" style="max-width:600px; width:90%; max-height:80vh; overflow-y:auto;">
+        <h2 style="margin-bottom:20px;">Добавить конфиг</h2>
+        
+        <!-- Выпадающий список способа добавления -->
+        <div style="margin-bottom:20px;">
+          <label style="display:block; margin-bottom:8px; font-size:14px; color:var(--text-muted);">Способ добавления:</label>
+          <select id="add-method-select" style="width:100%; padding:12px; border-radius:12px; background:var(--card-soft); border:1px solid var(--border); color:var(--text); font-size:14px; cursor:pointer;">
+            <option value="clipboard">📋 Из буфера обмена</option>
+            <option value="url">🌐 По ссылке (одна ссылка)</option>
+            <option value="subscription">📥 Подписка (сохранить ссылку)</option>
+          </select>
+        </div>
+
+        <!-- Режим: Из буфера обмена -->
+        <div id="mode-clipboard" style="display:flex; flex-direction:column; gap:16px;">
+          <div>
+            <label style="display:block; margin-bottom:8px; font-size:14px; color:var(--text-muted);">Вставьте конфиг(и) из буфера обмена (можно несколько, каждый с новой строки):</label>
+            <textarea id="config-input" placeholder="vless://... или vmess://... или trojan://... или ss://...&#10;&#10;Можно вставить несколько конфигов, каждый с новой строки" style="width:100%; min-height:120px; padding:12px; border-radius:12px; background:var(--card-soft); border:1px solid var(--border); color:var(--text); font-family:'JetBrains Mono', monospace; font-size:13px; resize:vertical;"></textarea>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button class="pill-button" id="paste-btn" style="flex:1;">📋 Вставить из буфера</button>
+            <button class="pill-button" id="add-btn" style="flex:1; background:linear-gradient(135deg, var(--success), #47f5b8);">✓ Добавить</button>
+          </div>
+          <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-muted); cursor:pointer;">
+            <input type="checkbox" id="test-on-add" style="width:18px; height:18px; cursor:pointer;">
+            <span>Тестировать конфиг перед добавлением</span>
+          </label>
+        </div>
+
+        <!-- Режим: По ссылке -->
+        <div id="mode-url" style="display:none; flex-direction:column; gap:16px;">
+          <div>
+            <label style="display:block; margin-bottom:8px; font-size:14px; color:var(--text-muted);">URL для загрузки конфигов:</label>
+            <input type="text" id="config-url-input" value="https://raw.githubusercontent.com/STR97/STRUGOV/refs/heads/main/STR.BYPASS" placeholder="https://raw.githubusercontent.com/..." style="width:100%; padding:12px; border-radius:12px; background:var(--card-soft); border:1px solid var(--border); color:var(--text); font-family:'JetBrains Mono', monospace; font-size:13px;">
+            <div style="margin-top:8px; font-size:12px; color:var(--text-muted);">Поддерживаются ссылки на raw файлы (GitHub, GitLab и т.д.)</div>
+          </div>
+          <button class="pill-button" id="load-url-btn" style="background:linear-gradient(135deg, var(--accent), var(--accent-strong));">📥 Загрузить конфиги</button>
+          <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-muted); cursor:pointer;">
+            <input type="checkbox" id="test-on-load" style="width:18px; height:18px; cursor:pointer;">
+            <span>Тестировать конфиги и сортировать по результату</span>
+          </label>
+          <div id="url-loading" style="display:none; padding:12px; border-radius:12px; background:rgba(123,92,255,0.15); border:1px solid rgba(123,92,255,0.3); color:var(--accent); font-size:13px; text-align:center;">
+            ⏳ Загрузка конфигов...
+          </div>
+          <div id="url-result" style="display:none; padding:12px; border-radius:12px; font-size:13px;"></div>
+        </div>
+
+        <!-- Режим: Подписка -->
+        <div id="mode-subscription" style="display:none; flex-direction:column; gap:16px;">
+          <div>
+            <label style="display:block; margin-bottom:8px; font-size:14px; color:var(--text-muted);">URL подписки (будет сохранен):</label>
+            <input type="text" id="subscription-url-input" value="https://raw.githubusercontent.com/STR97/STRUGOV/refs/heads/main/STR.BYPASS" placeholder="https://raw.githubusercontent.com/..." style="width:100%; padding:12px; border-radius:12px; background:var(--card-soft); border:1px solid var(--border); color:var(--text); font-family:'JetBrains Mono', monospace; font-size:13px;">
+            <div style="margin-top:8px; font-size:12px; color:var(--text-muted);">Ссылка будет сохранена для автоматического обновления</div>
+          </div>
+          <button class="pill-button" id="add-subscription-btn" style="background:linear-gradient(135deg, var(--accent), var(--accent-strong));">💾 Сохранить и загрузить</button>
+          <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-muted); cursor:pointer;">
+            <input type="checkbox" id="test-on-subscription" style="width:18px; height:18px; cursor:pointer;">
+            <span>Тестировать конфиги и сортировать по результату</span>
+          </label>
+          <div id="subscription-loading" style="display:none; padding:12px; border-radius:12px; background:rgba(123,92,255,0.15); border:1px solid rgba(123,92,255,0.3); color:var(--accent); font-size:13px; text-align:center;">
+            ⏳ Загрузка конфигов...
+          </div>
+          <div id="subscription-result" style="display:none; padding:12px; border-radius:12px; font-size:13px;"></div>
+        </div>
+
+        <div id="config-error" style="display:none; padding:12px; border-radius:12px; background:rgba(255,107,129,0.15); border:1px solid rgba(255,107,129,0.3); color:var(--danger); font-size:13px; margin-top:16px;"></div>
+        <button class="pill-button" id="cancel-btn" style="background:rgba(255,255,255,0.08); margin-top:16px;">Отмена</button>
+      </div>
+    </div>
+
+  <script>
+    const ui = {
+      statusChip: document.getElementById('status-chip'),
+      clock: document.getElementById('clock'),
+      whoer: document.getElementById('whoer-btn'),
+      powerButton: document.getElementById('power-button'),
+      serverList: document.getElementById('server-list'),
+      serverCount: document.getElementById('server-count'),
+      currentName: document.getElementById('current-server-name'),
+      currentMeta: document.getElementById('current-server-meta'),
+      statDownload: document.getElementById('stat-download'),
+      statUpload: document.getElementById('stat-upload'),
+      statPing: document.getElementById('stat-ping'),
+      speedGauge: document.getElementById('speed-gauge'),
+      speedValue: document.getElementById('speed-value'),
+      pinnedDetails: document.getElementById('pinned-details'),
+      notification: document.getElementById('notification'),
+      tabs: {
+        power: document.getElementById('tab-power'),
+        servers: document.getElementById('tab-servers'),
+        speed: document.getElementById('tab-speed')
+      },
+      views: {
+        power: document.getElementById('view-power'),
+        servers: document.getElementById('view-servers'),
+        speed: document.getElementById('view-speed')
+      }
+    };
+
+    function showTab(tab) {
+      Object.values(ui.tabs).forEach(b => b.classList.remove('active'));
+      Object.values(ui.views).forEach(v => v.classList.remove('active'));
+      ui.tabs[tab].classList.add('active');
+      ui.views[tab].classList.add('active');
+    }
+
+    ui.tabs.power.addEventListener('click', () => showTab('power'));
+    ui.tabs.servers.addEventListener('click', () => showTab('servers'));
+    ui.tabs.speed.addEventListener('click', () => showTab('speed'));
+
+    let serversCache = {};
+    let selectedId = null;
+    let pinnedId = null;
+    let connectedId = null;
+    let isConnected = false;
+    let isBusy = false;
+    let connectedAt = null;
+    let durationTimer = null;
+
+    function showNotification(message, type = 'success') {
+      ui.notification.textContent = message;
+      ui.notification.className = `notification ${type}`;
+      ui.notification.classList.add('show');
+      setTimeout(() => ui.notification.classList.remove('show'), 3000);
+    }
+
+    function formatDuration(ms) {
+      const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+      const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+      const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+      const seconds = String(totalSeconds % 60).padStart(2, '0');
+      return `${hours}:${minutes}:${seconds}`;
+    }
+
+    function updateDuration() {
+      if (!connectedAt) {
+        ui.clock.textContent = '00:00:00';
+        return;
+      }
+      ui.clock.textContent = formatDuration(Date.now() - connectedAt);
+    }
+
+    function startDurationTimer() {
+      connectedAt = Date.now();
+      updateDuration();
+      clearInterval(durationTimer);
+      durationTimer = setInterval(updateDuration, 1000);
+    }
+
+    function stopDurationTimer() {
+      clearInterval(durationTimer);
+      durationTimer = null;
+      connectedAt = null;
+      updateDuration();
+    }
+
+    updateDuration();
+
+    function resetSpeed() {
+      ui.statDownload.textContent = '0.0 Mb/s';
+      ui.statUpload.textContent = '0.0 Mb/s';
+      ui.speedValue.textContent = '0.00 Mb/s';
+      ui.speedGauge.style.width = '0%';
+    }
+
+    function updateSpeed(data) {
+      if (!isConnected) return;
+      const downMbps = (data.downBps * 8 / 1e6) || 0;
+      const upMbps = (data.upBps * 8 / 1e6) || 0;
+      ui.statDownload.textContent = `${downMbps.toFixed(2)} Mb/s`;
+      ui.statUpload.textContent = `${upMbps.toFixed(2)} Mb/s`;
+      ui.speedValue.textContent = `${downMbps.toFixed(2)} Mb/s`;
+      ui.speedGauge.style.width = `${Math.min(100, downMbps * 2)}%`;
+    }
+
+    if (window.vpn.onSpeedUpdate) { window.vpn.onSpeedUpdate(updateSpeed); }
+
+    function updateStatus(state, text) { ui.statusChip.dataset.state = state; ui.statusChip.textContent = text; }
+
+    function setSelected(id) {
+      selectedId = id;
+      document.querySelectorAll('.server-item').forEach(item => item.classList.toggle('selected', item.dataset.id === id));
+      if (id && serversCache[id]) {
+        const server = serversCache[id];
+        ui.currentName.textContent = `${server.flag} ${server.name}`;
+        ui.currentMeta.textContent = server.speed;
+      } else {
+        ui.currentName.textContent = 'Выберите сервер';
+        ui.currentMeta.textContent = 'Статус соединения обновится после подключения';
+      }
+    }
+
+    function updateServerButtons() {
+      document.querySelectorAll('.server-item').forEach(item => {
+        const id = item.dataset.id; const btn = item.querySelector('[data-action="connect"]'); if (!btn) return;
+        if (connectedId === id) { btn.textContent = 'Отключить'; btn.classList.add('disconnect'); item.classList.add('connected'); }
+        else { btn.textContent = 'Подключить'; btn.classList.remove('disconnect'); item.classList.remove('connected'); }
+      });
+    }
+
+    function renderPinned() {
+      const wrap = ui.pinnedDetails; wrap.innerHTML = '';
+      if (!pinnedId || !serversCache[pinnedId]) { wrap.innerHTML = '<div class="empty">Закрепите сервер, чтобы быстро подключаться к нему</div>'; return; }
+      const s = serversCache[pinnedId];
+      const info = document.createElement('div'); info.className = 'pinned-info';
+      info.innerHTML = `<span class="flag">${s.flag}</span><div><div class="name">${s.name}</div><div class="meta">${s.speed}</div></div>`;
+      const actions = document.createElement('div'); actions.className = 'server-actions';
+      const connectBtn = document.createElement('button'); connectBtn.className = 'pill-button'; connectBtn.textContent = connectedId === pinnedId ? 'Отключить' : 'Подключить';
+      connectBtn.addEventListener('click', async (e) => { e.stopPropagation(); if (connectedId === pinnedId) await disconnect(); else await connectTo(pinnedId); });
+      actions.appendChild(connectBtn); wrap.appendChild(info); wrap.appendChild(actions);
+    }
+
+    async function loadServers(testResults = null) {
+      try {
+        let servers;
+        if (testResults && Array.isArray(testResults) && testResults.length > 0) {
+          // Если переданы результаты тестов, используем их для сортировки
+          servers = await window.vpn.getServers(false);
+          // Пересортируем серверы на основе результатов тестов
+          const testMap = new Map(testResults.map(r => [r.configUrl, r]));
+          const sortedIds = Object.keys(servers).sort((a, b) => {
+            const testA = testMap.get(servers[a].configUrl);
+            const testB = testMap.get(servers[b].configUrl);
+            if (testA && testB) {
+              if (testA.success && !testB.success) return -1;
+              if (!testA.success && testB.success) return 1;
+              if (testA.success && testB.success) {
+                return (testA.latency || Infinity) - (testB.latency || Infinity);
+              }
+            }
+            return 0;
+          });
+          const sortedServers = {};
+          sortedIds.forEach((id, index) => {
+            const server = servers[id];
+            server.testResult = testMap.get(server.configUrl);
+            sortedServers[index] = server;
+          });
+          servers = sortedServers;
+        } else {
+          servers = await window.vpn.getServers(false);
+        }
+        serversCache = servers;
+        ui.serverCount.textContent = `${Object.keys(servers).length} доступно`;
+        ui.serverList.innerHTML = '';
+        
+        if (Object.keys(servers).length === 0) {
+          ui.serverList.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><div style="font-size:48px; margin-bottom:16px;">📋</div><div style="font-size:16px; margin-bottom:8px;">Нет добавленных серверов</div><div style="font-size:14px;">Нажмите "+ Добавить конфиг" чтобы добавить первый сервер</div></div>';
+          setSelected(null);
+        } else {
+          Object.entries(servers).forEach(([id, s]) => {
+            const item = document.createElement('div'); item.className = 'server-item'; item.dataset.id = id;
+            
+            // Формируем мета-информацию
+            let metaText = '';
+            if (s.testResult) {
+              if (s.testResult.success) {
+                metaText = s.testResult.latency ? `✅ ${s.testResult.latency}ms` : '✅ доступен';
+              } else {
+                metaText = '❌ недоступен';
+                item.style.opacity = '0.65';
+              }
+            } else {
+              metaText = s.speed || 'пользовательский';
+            }
+            
+            // Очищаем имя от лишних символов
+            const cleanName = s.name.replace(/[🔞👾]/g, '').trim();
+            
+            item.innerHTML = `
+              <div class="server-info">
+                <span class="flag" style="font-size:20px;">${s.flag}</span>
+                <div class="server-text">
+                  <div class="name" title="${s.name}">${cleanName}</div>
+                  <div class="meta">${metaText}</div>
+                </div>
+              </div>
+              <div class="server-actions">
+                <button class="circle-btn" data-action="pin" title="Закрепить">📌</button>
+                <button class="circle-btn delete" data-action="delete" title="Удалить" style="background:rgba(255,107,129,0.15);">🗑</button>
+                <button class="pill-button" data-action="connect">Подключить</button>
+              </div>
+            `;
+            ui.serverList.appendChild(item);
+          });
+          if (pinnedId && servers[pinnedId]) setSelected(pinnedId); else setSelected(Object.keys(servers)[0] || null);
+        }
+        
+        updateServerButtons(); renderPinned(); updateStatus(isConnected ? 'connected' : 'disconnected', isConnected ? 'Подключено' : 'Отключено');
+      } catch (e) { updateStatus('disconnected', 'Ошибка загрузки'); showNotification('Не удалось загрузить серверы', 'error'); }
+    }
+
+    ui.serverList && ui.serverList.addEventListener('click', async (event) => {
+      const item = event.target.closest('.server-item'); if (!item) return;
+      const id = item.dataset.id; const actionEl = event.target.closest('[data-action]'); if (!actionEl) { setSelected(id); return; }
+      const action = actionEl.dataset.action;
+      if (action === 'pin') {
+        try { await window.vpn.pinServer(id); pinnedId = id; renderPinned(); showNotification('Сервер закреплён'); } catch { showNotification('Не удалось закрепить сервер', 'error'); }
+      } else if (action === 'connect') {
+        if (connectedId === id) await disconnect(); else await connectTo(id);
+      }
+    });
+
+    async function connectTo(id) {
+      if (!id || !serversCache[id] || isBusy) { if (!id) showNotification('Сначала выберите сервер', 'error'); return; }
+      isBusy = true; setSelected(id); updateStatus('connecting', 'Подключение...'); ui.powerButton.classList.add('connecting');
+      try { const res = await window.vpn.connect(id); connectedId = id; isConnected = true; updateStatus('connected', `Подключено к ${res.server.name}`); ui.powerButton.classList.add('connected'); showNotification(`Успешное подключение к ${res.server.name}`); updateServerButtons(); startDurationTimer(); }
+      catch { showNotification('Не удалось подключиться', 'error'); updateStatus('disconnected', 'Отключено'); stopDurationTimer(); }
+      finally { ui.powerButton.classList.remove('connecting'); isBusy = false; }
+    }
+
+    async function disconnect() {
+      if (!isConnected || isBusy) return; isBusy = true; updateStatus('connecting', 'Отключение...');
+      try { await window.vpn.disconnect(); connectedId = null; isConnected = false; resetSpeed(); ui.powerButton.classList.remove('connected'); updateStatus('disconnected', 'Отключено'); showNotification('VPN отключён'); updateServerButtons(); stopDurationTimer(); }
+      catch { showNotification('Ошибка при отключении', 'error'); }
+      finally { isBusy = false; }
+    }
+
+    ui.powerButton.addEventListener('click', async () => { if (isConnected) await disconnect(); else await connectTo(selectedId || pinnedId); });
+    ui.whoer.addEventListener('click', () => { window.vpn.openWhoer(); showNotification('Открываю whoer для проверки IP'); });
+
+    // Модальное окно для добавления конфига
+    const modal = document.getElementById('config-modal');
+    const configInput = document.getElementById('config-input');
+    const pasteBtn = document.getElementById('paste-btn');
+    const addBtn = document.getElementById('add-btn');
+    const cancelBtn = document.getElementById('cancel-btn');
+    const configError = document.getElementById('config-error');
+    const addConfigBtn = document.getElementById('add-config-btn');
+    const methodSelect = document.getElementById('add-method-select');
+    const modeClipboard = document.getElementById('mode-clipboard');
+    const modeUrl = document.getElementById('mode-url');
+    const modeSubscription = document.getElementById('mode-subscription');
+    const urlInput = document.getElementById('config-url-input');
+    const subscriptionUrlInput = document.getElementById('subscription-url-input');
+    const loadUrlBtn = document.getElementById('load-url-btn');
+    const addSubscriptionBtn = document.getElementById('add-subscription-btn');
+    const urlLoading = document.getElementById('url-loading');
+    const urlResult = document.getElementById('url-result');
+    const subscriptionLoading = document.getElementById('subscription-loading');
+    const subscriptionResult = document.getElementById('subscription-result');
+    const testOnAdd = document.getElementById('test-on-add');
+    const testOnLoad = document.getElementById('test-on-load');
+    const testOnSubscription = document.getElementById('test-on-subscription');
+
+    function switchAddMode(mode) {
+      modeClipboard.style.display = mode === 'clipboard' ? 'flex' : 'none';
+      modeUrl.style.display = mode === 'url' ? 'flex' : 'none';
+      modeSubscription.style.display = mode === 'subscription' ? 'flex' : 'none';
+      configError.style.display = 'none';
+      urlResult.style.display = 'none';
+      subscriptionResult.style.display = 'none';
+    }
+
+    methodSelect.addEventListener('change', (e) => {
+      switchAddMode(e.target.value);
+    });
+
+    function showModal() {
+      modal.style.display = 'flex';
+      configInput.value = '';
+      urlInput.value = subscriptionUrlInput.value = 'https://raw.githubusercontent.com/STR97/STRUGOV/refs/heads/main/STR.BYPASS';
+      configError.style.display = 'none';
+      urlLoading.style.display = 'none';
+      subscriptionLoading.style.display = 'none';
+      urlResult.style.display = 'none';
+      subscriptionResult.style.display = 'none';
+      methodSelect.value = 'clipboard';
+      switchAddMode('clipboard');
+      configInput.focus();
+    }
+
+    function hideModal() {
+      modal.style.display = 'none';
+      configError.style.display = 'none';
+    }
+
+    addConfigBtn.addEventListener('click', showModal);
+    cancelBtn.addEventListener('click', hideModal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) hideModal(); });
+
+    // Добавление конфига(ов) из буфера с тестом
+    addBtn.addEventListener('click', async () => {
+      const configText = configInput.value.trim();
+      if (!configText) {
+        configError.textContent = 'Введите конфиг(и)';
+        configError.style.display = 'block';
+        return;
+      }
+
+      const shouldTest = testOnAdd.checked;
+      addBtn.disabled = true;
+      addBtn.textContent = shouldTest ? '⏳ Тестирование...' : '⏳ Добавление...';
+      configError.style.display = 'none';
+
+      try {
+        const result = await window.vpn.addConfigsFromText(configText, shouldTest);
+        
+        addBtn.disabled = false;
+        addBtn.textContent = '✓ Добавить';
+        
+        if (result.success) {
+          if (result.added > 0) {
+            showNotification(result.message || `Добавлено ${result.added} конфигов`);
+            hideModal();
+            await loadServers(shouldTest ? result.testResults : null);
+          } else {
+            configError.textContent = 'Все конфиги уже существуют или невалидны';
+            configError.style.display = 'block';
+          }
+        } else {
+          configError.textContent = result.error || 'Ошибка при добавлении';
+          configError.style.display = 'block';
+        }
+      } catch (e) {
+        addBtn.disabled = false;
+        addBtn.textContent = '✓ Добавить';
+        configError.textContent = `Ошибка: ${e.message}`;
+        configError.style.display = 'block';
+      }
+    });
+
+    // Загрузка конфигов по URL
+    loadUrlBtn.addEventListener('click', async () => {
+      const url = urlInput.value.trim();
+      if (!url) {
+        configError.textContent = 'Введите URL';
+        configError.style.display = 'block';
+        return;
+      }
+
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        configError.textContent = 'URL должен начинаться с http:// или https://';
+        configError.style.display = 'block';
+        return;
+      }
+
+      urlLoading.style.display = 'block';
+      urlResult.style.display = 'none';
+      configError.style.display = 'none';
+      loadUrlBtn.disabled = true;
+      const shouldTest = testOnLoad.checked;
+
+      try {
+        const result = await window.vpn.loadConfigsFromUrl(url, shouldTest);
+        
+        urlLoading.style.display = 'none';
+        loadUrlBtn.disabled = false;
+
+        if (result.success) {
+          urlResult.style.display = 'block';
+          urlResult.style.background = 'rgba(61,210,161,0.15)';
+          urlResult.style.border = '1px solid rgba(61,210,161,0.3)';
+          urlResult.style.color = 'var(--success)';
+          urlResult.innerHTML = `
+            <div style="font-weight:600; margin-bottom:8px;">✓ Успешно загружено!</div>
+            <div>Всего найдено: ${result.total}</div>
+            <div>Валидных: ${result.loaded}</div>
+            <div>Добавлено: ${result.added}</div>
+            <div>Пропущено (дубликаты): ${result.skipped}</div>
+            <div>Невалидных: ${result.invalid}</div>
+            ${shouldTest && result.testResults ? `<div style="margin-top:8px; font-size:12px;">Протестировано: ${result.testResults.filter(r => r.success).length} доступны</div>` : ''}
+          `;
+          
+          if (result.added > 0) {
+            setTimeout(async () => {
+              await loadServers(shouldTest ? result.testResults : null);
+              hideModal();
+              showNotification(`Добавлено ${result.added} конфигов`);
+            }, 1500);
+          } else {
+            showNotification('Новых конфигов не найдено', 'error');
+          }
+        } else {
+          configError.textContent = result.error || 'Ошибка при загрузке';
+          configError.style.display = 'block';
+        }
+      } catch (e) {
+        urlLoading.style.display = 'none';
+        loadUrlBtn.disabled = false;
+        configError.textContent = `Ошибка: ${e.message}`;
+        configError.style.display = 'block';
+      }
+    });
+
+    // Добавление подписки
+    addSubscriptionBtn.addEventListener('click', async () => {
+      const url = subscriptionUrlInput.value.trim();
+      if (!url) {
+        configError.textContent = 'Введите URL';
+        configError.style.display = 'block';
+        return;
+      }
+
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        configError.textContent = 'URL должен начинаться с http:// или https://';
+        configError.style.display = 'block';
+        return;
+      }
+
+      subscriptionLoading.style.display = 'block';
+      subscriptionResult.style.display = 'none';
+      configError.style.display = 'none';
+      addSubscriptionBtn.disabled = true;
+      const shouldTest = testOnSubscription.checked;
+
+      try {
+        // Сохраняем подписку
+        await window.vpn.addSubscription(url);
+        
+        // Загружаем конфиги
+        const result = await window.vpn.loadConfigsFromUrl(url, shouldTest);
+        
+        subscriptionLoading.style.display = 'none';
+        addSubscriptionBtn.disabled = false;
+
+        if (result.success) {
+          subscriptionResult.style.display = 'block';
+          subscriptionResult.style.background = 'rgba(61,210,161,0.15)';
+          subscriptionResult.style.border = '1px solid rgba(61,210,161,0.3)';
+          subscriptionResult.style.color = 'var(--success)';
+          subscriptionResult.innerHTML = `
+            <div style="font-weight:600; margin-bottom:8px;">✓ Подписка сохранена и загружена!</div>
+            <div>Всего найдено: ${result.total}</div>
+            <div>Валидных: ${result.loaded}</div>
+            <div>Добавлено: ${result.added}</div>
+            <div>Пропущено (дубликаты): ${result.skipped}</div>
+            <div>Невалидных: ${result.invalid}</div>
+            ${shouldTest && result.testResults ? `<div style="margin-top:8px; font-size:12px;">Протестировано: ${result.testResults.filter(r => r.success).length} доступны</div>` : ''}
+          `;
+          
+          if (result.added > 0) {
+            setTimeout(async () => {
+              await loadServers(shouldTest ? result.testResults : null);
+              hideModal();
+              showNotification(`Подписка добавлена. Загружено ${result.added} конфигов`);
+            }, 1500);
+          } else {
+            showNotification('Подписка сохранена, но новых конфигов не найдено', 'error');
+          }
+        } else {
+          configError.textContent = result.error || 'Ошибка при загрузке';
+          configError.style.display = 'block';
+        }
+      } catch (e) {
+        subscriptionLoading.style.display = 'none';
+        addSubscriptionBtn.disabled = false;
+        configError.textContent = `Ошибка: ${e.message}`;
+        configError.style.display = 'block';
+      }
+    });
+
+    pasteBtn.addEventListener('click', async () => {
+      try {
+        const clipboardText = await window.vpn.getClipboard();
+        if (clipboardText) {
+          configInput.value = clipboardText.trim();
+          configInput.focus();
+        } else {
+          showNotification('Буфер обмена пуст', 'error');
+        }
+      } catch (e) {
+        showNotification('Не удалось прочитать буфер обмена', 'error');
+      }
+    });
+
+
+    // Обработка удаления сервера
+    ui.serverList && ui.serverList.addEventListener('click', async (event) => {
+      const deleteBtn = event.target.closest('[data-action="delete"]');
+      if (deleteBtn) {
+        const item = deleteBtn.closest('.server-item');
+        const id = item.dataset.id;
+        const servers = await window.vpn.getServers();
+        const server = servers[id];
+        if (server && server.configUrl) {
+          if (confirm(`Удалить сервер "${server.name}"?`)) {
+            const result = await window.vpn.removeConfig(server.configUrl);
+            if (result.success) {
+              showNotification('Сервер удалён');
+              await loadServers();
+            } else {
+              showNotification('Ошибка при удалении', 'error');
+            }
+          }
+        }
+        event.stopPropagation();
+        return;
+      }
+    });
+
+    // Кнопки управления
+    const updateSubscriptionsBtn = document.getElementById('update-subscriptions-btn');
+    const testAllBtn = document.getElementById('test-all-btn');
+    const removeDuplicatesBtn = document.getElementById('remove-duplicates-btn');
+    const clearAllBtn = document.getElementById('clear-all-btn');
+
+    updateSubscriptionsBtn.addEventListener('click', async () => {
+      if (!confirm('Обновить все подписки? Это может занять некоторое время.')) return;
+      
+      updateSubscriptionsBtn.disabled = true;
+      updateSubscriptionsBtn.textContent = '⏳ Обновление...';
+      
+      try {
+        const result = await window.vpn.updateAllSubscriptions(false);
+        showNotification(result.message || `Обновлено: ${result.added} конфигов`);
+        await loadServers();
+      } catch (e) {
+        showNotification('Ошибка при обновлении подписок', 'error');
+      } finally {
+        updateSubscriptionsBtn.disabled = false;
+        updateSubscriptionsBtn.textContent = '🔄 Обновить подписки';
+      }
+    });
+
+    testAllBtn.addEventListener('click', async () => {
+      if (!confirm('Протестировать все конфиги? Это может занять некоторое время.')) return;
+      
+      testAllBtn.disabled = true;
+      testAllBtn.textContent = '⏳ Тестирование...';
+      
+      try {
+        const results = await window.vpn.testAllConfigs();
+        await loadServers(results);
+        const successCount = results.filter(r => r.success).length;
+        showNotification(`Протестировано: ${successCount}/${results.length} доступны`);
+      } catch (e) {
+        showNotification('Ошибка при тестировании', 'error');
+      } finally {
+        testAllBtn.disabled = false;
+        testAllBtn.textContent = '⚡ Тест всех';
+      }
+    });
+
+    removeDuplicatesBtn.addEventListener('click', async () => {
+      if (!confirm('Удалить все повторяющиеся конфиги?')) return;
+      
+      try {
+        const result = await window.vpn.removeDuplicates();
+        if (result.removed > 0) {
+          showNotification(`Удалено ${result.removed} дубликатов`);
+          await loadServers();
+        } else {
+          showNotification('Дубликаты не найдены');
+        }
+      } catch (e) {
+        showNotification('Ошибка при удалении дубликатов', 'error');
+      }
+    });
+
+    clearAllBtn.addEventListener('click', async () => {
+      if (!confirm('УДАЛИТЬ ВСЕ КОНФИГИ? Это действие нельзя отменить!')) return;
+      if (!confirm('Вы уверены? Все конфиги будут удалены!')) return;
+      
+      try {
+        await window.vpn.clearAllConfigs();
+        showNotification('Все конфиги удалены');
+        await loadServers();
+      } catch (e) {
+        showNotification('Ошибка при удалении', 'error');
+      }
+    });
+
+    async function init() { pinnedId = await window.vpn.getPinned(); renderPinned(); await loadServers(); resetSpeed(); }
+    init(); setInterval(loadServers, 300000);
+  </script>
+</body>
+</html>
