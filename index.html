@@ -399,6 +399,10 @@
 
     async function loadServers(testResults = null) {
       try {
+        // Сохраняем configUrl выбранного сервера до тестирования/фильтрации
+        const selectedConfigUrl = selectedId && serversCache[selectedId] ? serversCache[selectedId].configUrl : null;
+        const pinnedConfigUrl = pinnedId && serversCache[pinnedId] ? serversCache[pinnedId].configUrl : null;
+        
         let servers;
         if (testResults && Array.isArray(testResults) && testResults.length > 0) {
           // Если переданы результаты тестов, используем их для сортировки
@@ -470,7 +474,47 @@
             `;
             ui.serverList.appendChild(item);
           });
-          if (pinnedId && servers[pinnedId]) setSelected(pinnedId); else setSelected(Object.keys(servers)[0] || null);
+          
+          // Восстанавливаем закрепленный сервер по configUrl
+          if (pinnedConfigUrl) {
+            for (const [id, server] of Object.entries(servers)) {
+              if (server.configUrl === pinnedConfigUrl) {
+                pinnedId = id;
+                break;
+              }
+            }
+            // Если закрепленный сервер не найден, сбрасываем pinnedId
+            if (pinnedId && !servers[pinnedId]) {
+              pinnedId = null;
+            }
+          }
+          
+          // Восстанавливаем выбранный сервер по configUrl
+          let restoredSelectedId = null;
+          if (selectedConfigUrl) {
+            // Ищем сервер с таким же configUrl в новой структуре
+            for (const [id, server] of Object.entries(servers)) {
+              if (server.configUrl === selectedConfigUrl) {
+                restoredSelectedId = id;
+                break;
+              }
+            }
+          }
+          
+          // Устанавливаем выбранный сервер: сначала закрепленный, потом сохраненный, потом первый доступный
+          if (pinnedId && servers[pinnedId]) {
+            setSelected(pinnedId);
+          } else if (restoredSelectedId && servers[restoredSelectedId]) {
+            setSelected(restoredSelectedId);
+          } else {
+            // Выбираем первый доступный сервер (предпочтительно с успешным тестом)
+            const serverIds = Object.keys(servers);
+            const availableServer = serverIds.find(id => {
+              const server = servers[id];
+              return !server.testResult || server.testResult.success;
+            });
+            setSelected(availableServer || serverIds[0] || null);
+          }
         }
         
         updateServerButtons(); renderPinned(); updateStatus(isConnected ? 'connected' : 'disconnected', isConnected ? 'Подключено' : 'Отключено');
@@ -490,8 +534,21 @@
 
     async function connectTo(id) {
       if (!id || !serversCache[id] || isBusy) { if (!id) showNotification('Сначала выберите сервер', 'error'); return; }
+      const server = serversCache[id];
+      if (!server || !server.configUrl) { showNotification('Ошибка: сервер не найден', 'error'); return; }
+      
       isBusy = true; setSelected(id); updateStatus('connecting', 'Подключение...'); ui.powerButton.classList.add('connecting');
-      try { const res = await window.vpn.connect(id); connectedId = id; isConnected = true; updateStatus('connected', `Подключено к ${res.server.name}`); ui.powerButton.classList.add('connected'); showNotification(`Успешное подключение к ${res.server.name}`); updateServerButtons(); startDurationTimer(); }
+      try { 
+        // Передаем configUrl напрямую для надежности
+        const res = await window.vpn.connect(server.configUrl); 
+        connectedId = id; 
+        isConnected = true; 
+        updateStatus('connected', `Подключено к ${res.server.name}`); 
+        ui.powerButton.classList.add('connected'); 
+        showNotification(`Успешное подключение к ${res.server.name}`); 
+        updateServerButtons(); 
+        startDurationTimer(); 
+      }
       catch { showNotification('Не удалось подключиться', 'error'); updateStatus('disconnected', 'Отключено'); stopDurationTimer(); }
       finally { ui.powerButton.classList.remove('connecting'); isBusy = false; }
     }
@@ -801,21 +858,53 @@
     });
 
     testAllBtn.addEventListener('click', async () => {
-      if (!confirm('Протестировать все конфиги? Это может занять некоторое время.')) return;
+      const totalServers = Object.keys(serversCache).length;
+      if (totalServers === 0) {
+        showNotification('Нет серверов для тестирования', 'error');
+        return;
+      }
+      
+      if (!confirm(`Протестировать все ${totalServers} конфигов? Это займет около ${Math.ceil(totalServers / 15 * 2.5)} секунд.`)) return;
       
       testAllBtn.disabled = true;
-      testAllBtn.textContent = '⏳ Тестирование...';
+      const startTime = Date.now();
+      
+      // Показываем прогресс
+      const updateProgress = () => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        testAllBtn.textContent = `⏳ ${elapsed}с...`;
+      };
+      const progressInterval = setInterval(updateProgress, 500);
+      updateProgress();
       
       try {
+        // Сохраняем выбранный сервер перед тестированием
+        const selectedConfigUrl = selectedId && serversCache[selectedId] ? serversCache[selectedId].configUrl : null;
+        
         const results = await window.vpn.testAllConfigs();
+        clearInterval(progressInterval);
+        
         await loadServers(results);
+        
+        // Восстанавливаем выбор после тестирования
+        if (selectedConfigUrl) {
+          for (const [id, server] of Object.entries(serversCache)) {
+            if (server.configUrl === selectedConfigUrl) {
+              setSelected(id);
+              break;
+            }
+          }
+        }
+        
         const successCount = results.filter(r => r.success).length;
-        showNotification(`Протестировано: ${successCount}/${results.length} доступны`);
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        showNotification(`Протестировано: ${successCount}/${results.length} доступны за ${elapsed}с`);
       } catch (e) {
+        clearInterval(progressInterval);
         showNotification('Ошибка при тестировании', 'error');
       } finally {
         testAllBtn.disabled = false;
-        testAllBtn.textContent = '⚡ Тест всех';
+        testAllBtn.textContent = '⚡ Тест';
       }
     });
 

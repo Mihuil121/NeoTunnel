@@ -15,6 +15,45 @@ let vpnProcess = null;
 const PID_FILE = path.join(VPN_DIR, '.vpn_pid');
 const Pinned_FILE = path.join(VPN_DIR, '.pinned_server');
 
+// Параллельное тестирование с ограничением одновременных запросов
+async function testConfigsParallel(configs, maxConcurrent = 15) {
+	const results = [];
+	const queue = [...configs];
+	const inProgress = new Set();
+	
+	async function testNext() {
+		if (queue.length === 0) return;
+		
+		const configUrl = queue.shift();
+		inProgress.add(configUrl);
+		
+		try {
+			const testResult = await testConfigSimple(configUrl);
+			results.push({ configUrl, ...testResult });
+		} catch (error) {
+			results.push({ configUrl, success: false, error: error.message, latency: null });
+		} finally {
+			inProgress.delete(configUrl);
+			
+			// Запускаем следующий тест
+			if (queue.length > 0) {
+				await testNext();
+			}
+		}
+	}
+	
+	// Запускаем параллельные тесты
+	const promises = [];
+	const concurrent = Math.min(maxConcurrent, configs.length);
+	for (let i = 0; i < concurrent; i++) {
+		promises.push(testNext());
+	}
+	
+	await Promise.all(promises);
+	
+	return results;
+}
+
 async function setElectronProxy(enabled) {
   try {
     if (enabled) {
@@ -138,11 +177,7 @@ function buildServersFromConfigs(testResults = null) {
 ipcMain.handle('get-servers', async (event, testConfigs = false) => {
 	if (testConfigs) {
 		const configs = configManager.getAllConfigs();
-		const testResults = [];
-		for (const configUrl of configs) {
-			const testResult = await testConfigSimple(configUrl);
-			testResults.push({ configUrl, ...testResult });
-		}
+		const testResults = await testConfigsParallel(configs, 15);
 		return buildServersFromConfigs(testResults);
 	}
 	return buildServersFromConfigs();
@@ -223,12 +258,9 @@ ipcMain.handle('add-configs-from-text', async (event, text, testConfigs = false)
 	let configsToAdd = validConfigs;
 	const testResults = [];
 	
-	// Тестируем конфиги если нужно
+	// Тестируем конфиги если нужно (параллельно)
 	if (testConfigs) {
-		for (const configUrl of validConfigs) {
-			const testResult = await testConfigSimple(configUrl);
-			testResults.push({ configUrl, ...testResult });
-		}
+		testResults.push(...await testConfigsParallel(validConfigs, 15));
 		// Сортируем по успешности и задержке
 		testResults.sort((a, b) => {
 			if (a.success && !b.success) return -1;
@@ -274,12 +306,9 @@ ipcMain.handle('load-configs-from-url', async (event, url, testConfigs = false) 
 		let configsToAdd = result.configs;
 		const testResults = [];
 
-		// Тестируем конфиги если нужно
+		// Тестируем конфиги если нужно (параллельно)
 		if (testConfigs) {
-			for (const configUrl of result.configs) {
-				const testResult = await testConfigSimple(configUrl);
-				testResults.push({ configUrl, ...testResult });
-			}
+			testResults.push(...await testConfigsParallel(result.configs, 15));
 			// Сортируем по успешности и задержке
 			testResults.sort((a, b) => {
 				if (a.success && !b.success) return -1;
@@ -333,10 +362,9 @@ ipcMain.handle('update-all-subscriptions', async (event, testConfigs = false) =>
 			let configsToAdd = result.configs;
 
 			if (testConfigs) {
-				for (const configUrl of result.configs) {
-					const testResult = await testConfigSimple(configUrl);
-					allTestResults.push({ configUrl, ...testResult });
-				}
+				const subscriptionTestResults = await testConfigsParallel(result.configs, 15);
+				allTestResults.push(...subscriptionTestResults);
+				// Сортируем по успешности и задержке
 				allTestResults.sort((a, b) => {
 					if (a.success && !b.success) return -1;
 					if (!a.success && b.success) return 1;
@@ -370,12 +398,13 @@ ipcMain.handle('test-config', async (event, configUrl) => {
 
 ipcMain.handle('test-all-configs', async (event) => {
 	const configs = configManager.getAllConfigs();
-	const results = [];
-
-	for (const configUrl of configs) {
-		const testResult = await testConfigSimple(configUrl);
-		results.push({ configUrl, ...testResult });
+	
+	if (configs.length === 0) {
+		return [];
 	}
+
+	// Параллельное тестирование с ограничением 15 одновременных запросов
+	const results = await testConfigsParallel(configs, 15);
 
 	// Сортируем по успешности и задержке
 	results.sort((a, b) => {
@@ -402,20 +431,37 @@ ipcMain.handle('clear-all-configs', () => {
 });
 
 // Запуск монитора после подключения
-ipcMain.handle('connect', async (event, id) => {
+ipcMain.handle('connect', async (event, idOrConfigUrl) => {
   if (vpnProcess) vpnProcess.kill();
   if (fs.existsSync(PID_FILE)) fs.unlinkSync(PID_FILE);
 
-  const servers = buildServersFromConfigs();
-  const server = servers[id];
+  let configUrl = idOrConfigUrl;
+  let server = null;
+
+  // Если передан configUrl напрямую (начинается с протокола), используем его
+  if (idOrConfigUrl.startsWith('vless://') || idOrConfigUrl.startsWith('vmess://') || 
+      idOrConfigUrl.startsWith('trojan://') || idOrConfigUrl.startsWith('ss://')) {
+    configUrl = idOrConfigUrl;
+    // Строим сервер из configUrl
+    const name = extractServerName(configUrl);
+    const flag = extractFlag(configUrl);
+    server = { name, flag, configUrl, speed: 'пользовательский' };
+  } else {
+    // Иначе ищем по id в списке серверов
+    const servers = buildServersFromConfigs();
+    server = servers[idOrConfigUrl];
+    if (server && server.configUrl) {
+      configUrl = server.configUrl;
+    }
+  }
   
-  if (!server) {
+  if (!server || !configUrl) {
     return { success: false, error: 'Сервер не найден' };
   }
 
   // Передаем конфиг напрямую в vpn.js
   const vpnJsPath = path.join(VPN_DIR, 'vpn.js');
-  vpnProcess = spawn('node', [vpnJsPath, 'connect', server.configUrl], { cwd: VPN_DIR, detached: true, stdio: 'ignore' });
+  vpnProcess = spawn('node', [vpnJsPath, 'connect', configUrl], { cwd: VPN_DIR, detached: true, stdio: 'ignore' });
   vpnProcess.unref();
   fs.writeFileSync(PID_FILE, vpnProcess.pid.toString());
 
