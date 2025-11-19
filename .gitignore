@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+*.exe
+*.AppImage
+*.deb
+*.zip
+*.asar
+
+# Binaries
+xray
+xray.exe
+*.dat
+
+# Logs
+*.log
+vpn.log
+
+# Temporary files
+.pinned_server
+.vpn_pid
+*.pid
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Archives
+Xray-*.zip
+Xray-windows-64*/
+
