@@ -213,14 +213,18 @@ if (args[0] === 'list') {
 
 // Если передан 'connect', берем конфиг из следующего аргумента
 let configUrl;
+let useTun = false;
 if (args[0] === 'connect' && args[1]) {
   configUrl = args[1];
+  // Проверяем наличие флага --tun
+  useTun = args.includes('--tun');
 } else {
   // Старый режим: по индексу
   const CFGS = configManager.getAllConfigs();
   const idx = CFGS[parseInt(args[0])];
   if (!idx) { console.log('Нет такого сервера!'); process.exit(1); }
   configUrl = idx;
+  useTun = args.includes('--tun');
 }
 
 if (!configUrl) { console.log('Нет такого сервера!'); process.exit(1); }
@@ -232,8 +236,8 @@ else if (configUrl.startsWith('trojan://')) outbound = parsers.parseTrojan(confi
 else if (configUrl.startsWith('ss://')) outbound = parsers.parseShadowsocks(configUrl);
 else { console.log('Неизвестный протокол'); process.exit(1); }
 
-console.log(`Подключаюсь к: ${configUrl.split('#')[1] || configUrl.slice(0, 60)}`);
-const { child: xray, configPath } = runXray(outbound, __dirname);
+console.log(`Подключаюсь к: ${configUrl.split('#')[1] || configUrl.slice(0, 60)}${useTun ? ' (TUN режим)' : ''}`);
+const { child: xray, configPath } = runXray(outbound, __dirname, useTun);
 
 xray.stdout.on('data', d => process.stdout.write(d));
 xray.stderr.on('data', d => process.stderr.write(d));

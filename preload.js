@@ -4,7 +4,7 @@ contextBridge.exposeInMainWorld('vpn', {
   getServers: () => ipcRenderer.invoke('get-servers'),
   getPinned: () => ipcRenderer.invoke('get-pinned'),
   pinServer: (id) => ipcRenderer.invoke('pin-server', id),
-  connect: (id) => ipcRenderer.invoke('connect', id),
+  connect: (id, useTun) => ipcRenderer.invoke('connect', id, useTun),
   disconnect: () => ipcRenderer.invoke('disconnect'),
   openWhoer: () => ipcRenderer.invoke('open-whoer'),
   getClipboard: () => ipcRenderer.invoke('get-clipboard'),

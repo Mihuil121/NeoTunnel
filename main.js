@@ -481,7 +481,7 @@ ipcMain.handle('clear-all-configs', () => {
 });
 
 // Запуск монитора после подключения
-ipcMain.handle('connect', async (event, idOrConfigUrl) => {
+ipcMain.handle('connect', async (event, idOrConfigUrl, useTun = false) => {
   if (vpnProcess) vpnProcess.kill();
   if (fs.existsSync(PID_FILE)) fs.unlinkSync(PID_FILE);
 
@@ -511,12 +511,18 @@ ipcMain.handle('connect', async (event, idOrConfigUrl) => {
 
   // Передаем конфиг напрямую в vpn.js
   const vpnJsPath = path.join(VPN_DIR, 'vpn.js');
-  vpnProcess = spawn('node', [vpnJsPath, 'connect', configUrl], { cwd: VPN_DIR, detached: true, stdio: 'ignore' });
+  const spawnArgs = [vpnJsPath, 'connect', configUrl];
+  if (useTun) {
+    spawnArgs.push('--tun');
+  }
+  vpnProcess = spawn('node', spawnArgs, { cwd: VPN_DIR, detached: true, stdio: 'ignore' });
   vpnProcess.unref();
   fs.writeFileSync(PID_FILE, vpnProcess.pid.toString());
 
-  setNativeProxy(true);
-  await setElectronProxy(true);
+  if (!useTun) {
+    setNativeProxy(true);
+    await setElectronProxy(true);
+  }
 
   startSpeedMonitor(sendSpeedUpdate);
   return { success: true, server: server };

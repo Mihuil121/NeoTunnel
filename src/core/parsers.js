@@ -156,15 +156,28 @@ function parseShadowsocks(u) {
 	};
 }
 
-function generateConfig(outbound) {
+function generateConfig(outbound, useTun = false) {
+	const inbounds = useTun ? [{
+		protocol: 'tun',
+		tag: 'tun-in',
+		settings: {
+			mtu: 1500,
+			stack: 'system'
+		},
+		sniffing: {
+			enabled: true,
+			destOverride: ['http', 'tls']
+		}
+	}] : [{
+		listen: '127.0.0.1',
+		port: 1080,
+		protocol: 'socks',
+		settings: { auth: 'noauth', udp: true }
+	}];
+
 	return {
 		log: { loglevel: 'warning' },
-		inbounds: [{
-			listen: '127.0.0.1',
-			port: 1080,
-			protocol: 'socks',
-			settings: { auth: 'noauth', udp: true }
-		}],
+		inbounds: inbounds,
 		outbounds: [outbound, { protocol: 'freedom', tag: 'direct' }],
 		routing: {
 			domainStrategy: 'IPIfNonMatch',

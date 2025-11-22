@@ -18,8 +18,8 @@ function resolveXrayPath(baseDir) {
 	}
 }
 
-function runXray(outbound, baseDir) {
-	const config = require('./parsers').generateConfig(outbound);
+function runXray(outbound, baseDir, useTun = false) {
+	const config = require('./parsers').generateConfig(outbound, useTun);
 	const configPath = path.join(os.tmpdir(), `xray-config-${Date.now()}.json`);
 	fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 

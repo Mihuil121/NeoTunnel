@@ -87,6 +87,15 @@
     .pill-button { padding:10px 20px; border-radius:16px; border:none; cursor:pointer; font-weight:600; font-size:14px; background:linear-gradient(135deg, var(--accent), var(--accent-strong)); color:#fff; transition: transform .2s, box-shadow .2s; }
     .pill-button:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(123,92,255,.35); }
 
+    .tun-toggle-container { display:flex; justify-content:center; margin:16px 0; }
+    .tun-toggle { display:flex; align-items:center; gap:10px; cursor:pointer; user-select:none; }
+    .tun-toggle input[type="checkbox"] { display:none; }
+    .tun-checkbox-custom { width:24px; height:24px; border:2px solid rgba(255,255,255,0.2); border-radius:6px; background:rgba(255,255,255,0.05); position:relative; transition:all .2s; display:flex; align-items:center; justify-content:center; }
+    .tun-toggle input[type="checkbox"]:checked + .tun-checkbox-custom { background:linear-gradient(135deg, var(--accent), var(--accent-strong)); border-color:var(--accent); }
+    .tun-toggle input[type="checkbox"]:checked + .tun-checkbox-custom::after { content:'✓'; color:#fff; font-size:16px; font-weight:bold; }
+    .tun-label { font-size:14px; font-weight:500; color:var(--text); }
+    .tun-toggle:hover .tun-checkbox-custom { border-color:var(--accent); background:rgba(123,92,255,0.1); }
+
     .server-card .subheader { margin-bottom:0; }
     .server-list { display:flex; flex-direction:column; max-height:520px; overflow-y:auto; padding-right:8px; padding-top:4px; }
     .server-list::-webkit-scrollbar { width:6px; }
@@ -139,6 +148,13 @@
         <div class="current-summary">
           <div class="location" id="current-server-name">Выберите сервер</div>
           <div class="meta" id="current-server-meta">Статус соединения обновится после подключения</div>
+        </div>
+        <div class="tun-toggle-container">
+          <label class="tun-toggle">
+            <input type="checkbox" id="tun-checkbox">
+            <span class="tun-checkbox-custom"></span>
+            <span class="tun-label">tun</span>
+          </label>
         </div>
         <div class="pinned-details" id="pinned-details"><div class="empty">Закрепите сервер, чтобы быстро подключаться к нему</div></div>
       </div>
@@ -273,6 +289,7 @@
       speedValue: document.getElementById('speed-value'),
       pinnedDetails: document.getElementById('pinned-details'),
       notification: document.getElementById('notification'),
+      tunCheckbox: document.getElementById('tun-checkbox'),
       tabs: {
         power: document.getElementById('tab-power'),
         servers: document.getElementById('tab-servers'),
@@ -549,13 +566,15 @@
       updateStatus('connecting', 'Подключение...'); 
       ui.powerButton.classList.add('connecting');
       try { 
-        // Передаем configUrl напрямую для надежности
-        const res = await window.vpn.connect(server.configUrl); 
+        // Получаем состояние чекбокса TUN
+        const useTun = ui.tunCheckbox ? ui.tunCheckbox.checked : false;
+        // Передаем configUrl и useTun
+        const res = await window.vpn.connect(server.configUrl, useTun); 
         connectedId = id; 
         isConnected = true; 
-        updateStatus('connected', `Подключено к ${res.server.name}`); 
+        updateStatus('connected', `Подключено к ${res.server.name}${useTun ? ' (TUN)' : ''}`); 
         ui.powerButton.classList.add('connected'); 
-        showNotification(`Успешное подключение к ${res.server.name}`); 
+        showNotification(`Успешное подключение к ${res.server.name}${useTun ? ' через TUN' : ''}`); 
         updateServerButtons(); 
         startDurationTimer(); 
       }
