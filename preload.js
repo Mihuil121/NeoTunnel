@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('vpn', {
   updateAllSubscriptions: (testConfigs) => ipcRenderer.invoke('update-all-subscriptions', testConfigs),
   testConfig: (configUrl) => ipcRenderer.invoke('test-config', configUrl),
   testAllConfigs: () => ipcRenderer.invoke('test-all-configs'),
+  testBlockedSites: () => ipcRenderer.invoke('test-blocked-sites'),
   removeDuplicates: () => ipcRenderer.invoke('remove-duplicates'),
   clearAllConfigs: () => ipcRenderer.invoke('clear-all-configs'),
   getServers: (testConfigs) => ipcRenderer.invoke('get-servers', testConfigs),

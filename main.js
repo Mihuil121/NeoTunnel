@@ -3,6 +3,8 @@ const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const { startSpeedMonitor, stopSpeedMonitor } = require('./src/main/speedMonitor');
+const https = require('https');
+const { SocksProxyAgent } = require('socks-proxy-agent');
 const configManager = require('./src/core/configManager');
 const { validateConfig, extractServerName, extractFlag } = require('./src/core/configValidator');
 const { loadConfigsFromUrl, parseConfigsFromText } = require('./src/core/configLoader');
@@ -394,6 +396,54 @@ ipcMain.handle('update-all-subscriptions', async (event, testConfigs = false) =>
 // Тестирование конфигов
 ipcMain.handle('test-config', async (event, configUrl) => {
 	return await testConfigSimple(configUrl);
+});
+
+const BLOCKED_SITES = [
+	{ name: 'YouTube', url: 'https://www.youtube.com/generate_204' },
+	{ name: 'Discord', url: 'https://discord.com/api/v9/experiments' },
+	{ name: 'Telegram', url: 'https://web.telegram.org' }
+];
+
+ipcMain.handle('test-blocked-sites', async () => {
+	if (!vpnProcess) {
+		return { success: false, error: 'Сначала подключитесь к серверу' };
+	}
+
+	const agent = new SocksProxyAgent('socks5h://127.0.0.1:1080');
+
+	async function testSite(site) {
+		return new Promise((resolve) => {
+			const request = https.get(site.url, {
+				agent,
+				timeout: 7000,
+				headers: { 'User-Agent': 'NeoTunnel Test/1.0' }
+			}, (res) => {
+				res.resume();
+				const success = res.statusCode && res.statusCode < 500;
+				resolve({ name: site.name, success, statusCode: res.statusCode || 0 });
+			});
+
+			request.on('timeout', () => {
+				request.destroy();
+				resolve({ name: site.name, success: false, statusCode: 0, error: 'timeout' });
+			});
+
+			request.on('error', (err) => {
+				resolve({ name: site.name, success: false, statusCode: 0, error: err.code || err.message });
+			});
+		});
+	}
+
+	const results = [];
+	for (const site of BLOCKED_SITES) {
+		results.push(await testSite(site));
+	}
+
+	return {
+		success: true,
+		results,
+		reachable: results.filter(r => r.success).length
+	};
 });
 
 ipcMain.handle('test-all-configs', async (event) => {
